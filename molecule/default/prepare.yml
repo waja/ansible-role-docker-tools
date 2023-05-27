@@ -1,0 +1,13 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+
+  tasks:
+    - name: "Create fake docker binary"
+      ansible.builtin.copy:
+        dest: "/usr/local/bin/docker"
+        content: |
+          #!/bin/bash
+          exit 0
+        mode: 0755

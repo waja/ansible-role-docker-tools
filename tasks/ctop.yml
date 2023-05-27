@@ -1,0 +1,31 @@
+---
+- name: Install gpg-agent and gpg for use with ansible.builtin.apt_key
+  ansible.builtin.apt:
+    name:
+      - gpg-agent
+      - gpg
+    update_cache: true
+    install_recommends: false
+
+- name: Add docker-ctop's apt key
+  ansible.builtin.apt_key:
+    url: 'https://azlux.fr/repo.gpg.key'
+    state: present
+    id: 98B824A5FA7D3A10FDB225B7CA548A0A0312D8E6
+
+- name: Setup the ctop apt repo
+  ansible.builtin.lineinfile:
+    line: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}] http://packages.azlux.fr/debian/ {{ ansible_distribution_release if ansible_distribution == 'Debian' else 'stable' }} main"
+    path: /etc/apt/sources.list.d/azlux.list
+    create: true
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+
+- name: Install additional docker tools packages
+  ansible.builtin.apt:
+    name:
+      - docker-ctop
+    update_cache: true
+    install_recommends: false
