@@ -45,13 +45,7 @@ jobs:
         include:
           - { distro: "geerlingguy/docker-ubuntu2004-ansible:latest", playbook: "converge.yml"}
           - { distro: "geerlingguy/docker-debian10-ansible:latest", playbook: "converge.yml"}
-#          - { distro: "geerlingguy/docker-debian11-ansible:latest", playbook: "converge.yml"}
           - { distro: "qwe1/docker-debian:11-molecule", playbook: "converge.yml"}
-#          - debian10
-#          - ubuntu2004
-#          - ubuntu1804
-#          - fedora34
-#          - rockylinux8
 
     steps:
       - name: Check out the codebase.
