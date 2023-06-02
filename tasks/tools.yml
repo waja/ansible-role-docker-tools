@@ -10,7 +10,8 @@
   register: dockertools_compose_switch_status
 
 - name: Setup docker compose-switch
-  when: not dockertools_compose_switch_status.stat.exists
+  when:
+    - dockertools_compose_switch_status.stat.exists is defined and not dockertools_compose_switch_status.stat.exists
   block:
     - name: Install curl which is needed for running compose-switch installer
       ansible.builtin.apt:
