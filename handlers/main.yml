@@ -1,0 +1,7 @@
+---
+- name: Watchtower - Start watchtower container via systemd
+  ansible.builtin.systemd:
+    name: watchtower
+    state: started
+    enabled: yes
+    daemon-reload: yes

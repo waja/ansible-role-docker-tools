@@ -1,0 +1,86 @@
+---
+- name: Watchtower - Create directories for deployment
+  ansible.builtin.file:
+    path: "{{ docker_base_dir }}/watchtower/container.conf"
+    state: directory
+    mode: '0755'
+
+- name: Watchtower - Create docker compose (default) definition
+  ansible.builtin.copy:
+    dest: "{{ docker_base_dir }}/watchtower/container.conf/docker-compose.yml"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      version: '3'
+
+      services:
+        watchtower:
+          image: containrrr/watchtower
+          labels:
+            com.centurylinklabs.watchtower.enable: "true"
+          restart: on-failure
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+          command: --interval 3600 --label-enable
+
+- name: Watchtower - Create docker-compose.yml symlink to container.conf/
+  ansible.builtin.file:
+    src: container.conf/docker-compose.yml
+    dest: "{{ docker_base_dir }}/watchtower/docker-compose.yml"
+    owner: root
+    group: root
+    state: link
+
+- name: Watchtower - Check production.yml is deployed
+  ansible.builtin.stat:
+    path: "{{ docker_base_dir }}/watchtower/container.conf/production.yml"
+  register: dockerservicestack_production_yml_status
+
+- name: Watchtower - Create docker compose production definition
+  ansible.builtin.copy:
+    dest: "{{ docker_base_dir }}/watchtower/container.conf/production.yml"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      version: '3'
+  when: dockerservicestack_production_yml_status.stat.exists is defined and not dockerservicestack_production_yml_status.stat.exists
+
+- name: Watchtower - Create systemd unit file
+  ansible.builtin.copy:
+    dest: "{{ docker_base_dir }}/watchtower/container.conf/watchtower.service"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Watchtower Service
+      After=network.target docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+
+      Environment="WORK_DIR={{ docker_base_dir }}/watchtower/"
+      WorkingDirectory={{ docker_base_dir }}/watchtower/
+      ExecStartPre=-/usr/local/bin/docker-compose -f "\${WORK_DIR}/docker-compose.yml" -f "\${WORK_DIR}/container.conf/production.yml" down
+      ExecStartPre=-/usr/local/bin/docker-compose -f "\${WORK_DIR}/docker-compose.yml" -f "\${WORK_DIR}/container.conf/production.yml" pull
+      ExecStart=/usr/local/bin/docker-compose -f "\${WORK_DIR}/docker-compose.yml" -f "\${WORK_DIR}/container.conf/production.yml" up -d
+      ExecStop=/usr/local/bin/docker-compose -f "\${WORK_DIR}/docker-compose.yml" -f "\${WORK_DIR}/container.conf/production.yml" down
+
+      [Install]
+      WantedBy=docker.service
+
+- name: Watchtower - Create systemd unit file symlink to /etc/systemd/system/
+  ansible.builtin.file:
+    src: "{{ docker_base_dir }}/watchtower/container.conf/watchtower.service"
+    dest: /etc/systemd/system/watchtower.service
+    owner: root
+    group: root
+    state: link
+  notify:
+    - Watchtower - Start watchtower container via systemd
