@@ -30,3 +30,4 @@
       ansible.builtin.command:
         cmd: bash
         stdin: "{{ dockertools_compose_switch_installer.content }}"
+        creates: /usr/local/bin/docker-compose
