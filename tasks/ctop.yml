@@ -7,20 +7,32 @@
     update_cache: true
     install_recommends: false
 
-- name: Add docker-ctop's apt key
+- name: Add docker-ctop GPG key securely via get_url (preferred method)
+  ansible.builtin.get_url:
+    url: https://azlux.fr/repo.gpg.key
+    dest: /etc/apt/trusted.gpg.d/azlux.gpg
+    mode: '0644'
+    force: true
+  when: ansible_distribution_major_version | int > 10  # Debian 11+, Ubuntu 20.04+
+
+- name: Add docker-ctop GPG key using apt_key (legacy fallback)
   ansible.builtin.apt_key:
-    url: 'https://azlux.fr/repo.gpg.key'
+    url: https://azlux.fr/repo.gpg.key
     state: present
     id: 98B824A5FA7D3A10FDB225B7CA548A0A0312D8E6
+  when: ansible_distribution_major_version | int <= 10
 
-- name: Setup the ctop apt repo
+- name: Setup the ctop APT repo
   ansible.builtin.lineinfile:
-    line: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}] http://packages.azlux.fr/debian/ {{ ansible_distribution_release if (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11) else 'stable' }} main"
+    line: >
+      deb [{{ 'signed-by=/etc/apt/trusted.gpg.d/azlux.gpg ' if ansible_distribution_major_version | int > 10 else '' }}arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}]
+      http://packages.azlux.fr/debian/
+      {{ ansible_distribution_release if (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11) else 'stable' }} main
     path: /etc/apt/sources.list.d/azlux.list
     create: true
     owner: root
     group: root
-    mode: 0644
+    mode: '0644'
     state: present
 
 - name: Install additional docker tools packages
