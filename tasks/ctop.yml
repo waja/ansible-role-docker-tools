@@ -7,21 +7,120 @@
     update_cache: true
     install_recommends: false
 
-- name: Add docker-ctop's apt key
+- name: Add docker-ctop GPG key securely via get_url (preferred method)
+  ansible.builtin.get_url:
+    url: https://azlux.fr/repo.gpg.key
+    dest: /etc/apt/trusted.gpg.d/azlux.gpg
+    mode: '0644'
+    force: true
+  when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int >= 20) or
+        (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int > 10)
+
+- name: Add docker-ctop GPG key using apt_key (legacy fallback)
   ansible.builtin.apt_key:
-    url: 'https://azlux.fr/repo.gpg.key'
+    url: https://azlux.fr/repo.gpg.key
     state: present
     id: 98B824A5FA7D3A10FDB225B7CA548A0A0312D8E6
+  when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int < 20) or
+        (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int <= 10)
 
-- name: Setup the ctop apt repo
-  ansible.builtin.lineinfile:
-    line: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}] http://packages.azlux.fr/debian/ {{ ansible_distribution_release if (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11) else 'stable' }} main"
-    path: /etc/apt/sources.list.d/azlux.list
-    create: true
+- name: Setup apt source via deb822 format (Debian 13+)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/azlux.sources
+    content: |
+      Types: deb
+      URIs: http://packages.azlux.fr/debian/
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: main
+      Architectures: {{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}
+      Signed-By: /etc/apt/trusted.gpg.d/azlux.gpg
+    mode: '0644'
     owner: root
     group: root
-    mode: 0644
-    state: present
+  when: (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int >= 13) or
+        (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int >= 24)
+
+- name: Setup apt source via source list (Debian <=12, Ubuntu <=22.04)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/azlux.list
+    content: >
+      deb [{{ 'signed-by=/etc/apt/trusted.gpg.d/azlux.gpg ' if ansible_facts['distribution_major_version'] | int > 10 else '' }}arch={{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}]
+      http://packages.azlux.fr/debian/
+      {{ ansible_facts['distribution_release'] if (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] | int >= 11) else 'stable' }} main
+    mode: '0644'
+    owner: root
+    group: root
+  when: (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int < 13) or
+        (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int < 24)
+
+- name: DEBUG | Check if key file exists after get_url
+  ansible.builtin.stat:
+    path: /etc/apt/trusted.gpg.d/azlux.gpg
+  register: azlux_key_file
+
+- name: DEBUG | Output key file stat info
+  ansible.builtin.debug:
+    var: azlux_key_file
+
+- name: DEBUG | Check if azlux.list exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/azlux.list
+  register: azlux_stat
+
+- name: DEBUG | Debug azlux.list file
+  ansible.builtin.command: cat /etc/apt/sources.list.d/azlux.list
+  register: azlux_cat
+  changed_when: false
+  failed_when: false
+  when: azlux_stat.stat.exists
+
+- name: DEBUG | Print file content
+  ansible.builtin.debug:
+    msg: "{{ azlux_cat.stdout }}"
+  when: azlux_stat.stat.exists
+
+- name: DEBUG | Check if azlux.sources exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/azlux.sources
+  register: azlux_sources_stat
+
+- name: DEBUG | Debug azlux.sources file
+  ansible.builtin.command: cat /etc/apt/sources.list.d/azlux.sources
+  register: azlux_sources_cat
+  changed_when: false
+  failed_when: false
+  when: azlux_sources_stat.stat.exists
+
+- name: DEBUG | Print file content
+  ansible.builtin.debug:
+    msg: "{{ azlux_sources_cat.stdout }}"
+  when: azlux_sources_stat.stat.exists
+
+- name: DEBUG | Read azlux.sources content (if exists)
+  ansible.builtin.slurp:
+    src: /etc/apt/sources.list.d/azlux.sources
+  register: azlux_sources_content
+  failed_when: false
+  changed_when: false
+
+- name: DEBUG | Output azlux.sources content (decoded)
+  ansible.builtin.debug:
+    msg: "{{ azlux_sources_content.content | b64decode }}"
+  failed_when: false
+  changed_when: false
+
+- name: DEBUG | Read azlux.list content (if exists)
+  ansible.builtin.slurp:
+    src: /etc/apt/sources.list.d/azlux.list
+  register: azlux_list_content
+  failed_when: false
+  changed_when: false
+
+- name: DEBUG | Output azlux.list content (decoded)
+  ansible.builtin.debug:
+    msg: "{{ azlux_list_content.content | b64decode }}"
+  failed_when: false
+  changed_when: false
 
 - name: Install additional docker tools packages
   ansible.builtin.apt:
