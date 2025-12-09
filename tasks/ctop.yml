@@ -62,6 +62,40 @@
   ansible.builtin.debug:
     var: azlux_key_file
 
+- name: DEBUG | Check if azlux.list exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/azlux.list
+  register: azlux_stat
+
+- name: DEBUG | Debug azlux.list file
+  ansible.builtin.command: cat /etc/apt/sources.list.d/azlux.list
+  register: azlux_cat
+  changed_when: false
+  failed_when: false
+  when: azlux_stat.stat.exists
+
+- name: DEBUG | Print file content
+  ansible.builtin.debug:
+    msg: "{{ azlux_cat.stdout }}"
+  when: azlux_stat.stat.exists
+
+- name: DEBUG | Check if azlux.sources exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/azlux.sources
+  register: azlux_sources_stat
+
+- name: DEBUG | Debug azlux.sources file
+  ansible.builtin.command: cat /etc/apt/sources.list.d/azlux.sources
+  register: azlux_sources_cat
+  changed_when: false
+  failed_when: false
+  when: azlux_sources_stat.stat.exists
+
+- name: DEBUG | Print file content
+  ansible.builtin.debug:
+    msg: "{{ azlux_sources_cat.stdout }}"
+  when: azlux_sources_stat.stat.exists
+
 - name: DEBUG | Read azlux.sources content (if exists)
   ansible.builtin.slurp:
     src: /etc/apt/sources.list.d/azlux.sources
