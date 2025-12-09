@@ -13,16 +13,16 @@
     dest: /etc/apt/trusted.gpg.d/azlux.gpg
     mode: '0644'
     force: true
-  when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version | int >= 20 or
-        (ansible_distribution == "Debian" and ansible_distribution_major_version | int > 10)
+  when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int >= 20) or
+        (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int > 10)
 
 - name: Add docker-ctop GPG key using apt_key (legacy fallback)
   ansible.builtin.apt_key:
     url: https://azlux.fr/repo.gpg.key
     state: present
     id: 98B824A5FA7D3A10FDB225B7CA548A0A0312D8E6
-  when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version | int < 20) or
-        (ansible_distribution == "Debian" and ansible_distribution_major_version | int <= 10)
+  when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int < 20) or
+        (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int <= 10)
 
 - name: Setup apt source via deb822 format (Debian 13+)
   ansible.builtin.copy:
@@ -30,28 +30,28 @@
     content: |
       Types: deb
       URIs: http://packages.azlux.fr/debian/
-      Suites: {{ ansible_distribution_release }}
+      Suites: {{ ansible_facts['distribution_release'] }}
       Components: main
-      Architectures: {{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}
+      Architectures: {{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}
       Signed-By: /etc/apt/trusted.gpg.d/azlux.gpg
     mode: '0644'
     owner: root
     group: root
-  when: ansible_distribution == "Debian" and ansible_distribution_major_version | int >= 13 or
-        (ansible_distribution == "Ubuntu" and ansible_distribution_major_version | int >= 24)
+  when: (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int >= 13) or
+        (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int >= 24)
 
 - name: Setup apt source via source list (Debian <=12, Ubuntu <=22.04)
   ansible.builtin.copy:
     dest: /etc/apt/sources.list.d/azlux.list
     content: >
-      deb [{{ 'signed-by=/etc/apt/trusted.gpg.d/azlux.gpg ' if ansible_distribution_major_version | int > 10 else '' }}arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}]
+      deb [{{ 'signed-by=/etc/apt/trusted.gpg.d/azlux.gpg ' if ansible_facts['distribution_major_version'] | int > 10 else '' }}arch={{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}]
       http://packages.azlux.fr/debian/
-      {{ ansible_distribution_release if (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11) else 'stable' }} main
+      {{ ansible_facts['distribution_release'] if (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] | int >= 11) else 'stable' }} main
     mode: '0644'
     owner: root
     group: root
-  when: (ansible_distribution == "Debian" and ansible_distribution_major_version | int < 13) or
-        (ansible_distribution == "Ubuntu" and ansible_distribution_major_version | int < 24)
+  when: (ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] | int < 13) or
+        (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] | int < 24)
 
 - name: DEBUG | Check if key file exists after get_url
   ansible.builtin.stat:
