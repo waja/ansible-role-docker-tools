@@ -1,3 +1,6 @@
 ---
 - name: Install additional tools for docker
   ansible.builtin.include_tasks: tools.yml
+
+- name: Deploy watchtower container stack
+  ansible.builtin.include_tasks: watchtower.yml
